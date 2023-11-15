@@ -1,7 +1,6 @@
 //! Errors which may occur when manipulating `Bvh` files.
 
 use crate::Axis;
-use lexical::Error as LexicalError;
 use std::{error::Error as StdError, fmt, io};
 
 /// Errors which may arise when loading a `Bvh` file from
@@ -109,7 +108,7 @@ pub enum LoadJointsError {
     /// The number of channels could not be parsed in a `CHANNELS` section.
     ParseNumChannelsError {
         /// The parse error, if there was a malformed string to parse.
-        error: Option<LexicalError>,
+        error: Option<anyhow::Error>,
         /// Line number in the source bvh where the error occurred.
         line: usize,
     },
@@ -128,7 +127,7 @@ pub enum LoadJointsError {
     /// An axis in the `OFFSET` section could not be parsed into a value.
     ParseOffsetError {
         /// The parse error.
-        parse_float_error: LexicalError,
+        parse_float_error: anyhow::Error,
         /// The axis of the offset which could not be parsed.
         axis: Axis,
         /// Line number in the source bvh where the error occurred.
@@ -239,21 +238,21 @@ pub enum LoadMotionError {
     /// The "Number of Frames" section could not be parsed in the bvh.
     MissingNumFrames {
         /// The parse error, or `None` if there was no number to be parsed.
-        parse_error: Option<LexicalError>,
+        parse_error: Option<anyhow::Error>,
         /// The line where the error occurred.
         line: usize,
     },
     /// The "Frame Time" section could not be parsed in the bvh.
     MissingFrameTime {
         /// The parse error, or `None` if there was no number to be parsed.
-        parse_error: Option<LexicalError>,
+        parse_error: Option<anyhow::Error>,
         /// The line where the error occurred.
         line: usize,
     },
     /// The motion values section could not be parsed in the bvh.
     ParseMotionSection {
         /// The parse error, or `None` if there was no number to be parsed.
-        parse_error: LexicalError,
+        parse_error: anyhow::Error,
         /// The index of the motion value where the error occurred.
         channel_index: usize,
         /// The line where the error occurred.

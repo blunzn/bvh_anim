@@ -5,9 +5,9 @@ use crate::{
     joint::{JointData, JointName},
     Axis, Bvh, Channel, ChannelType, EnumeratedLines,
 };
+use anyhow::anyhow;
 use bstr::ByteSlice;
-use lexical::parse;
-use std::time::Duration;
+use std::{time::Duration, convert::TryInto};
 
 /*
 use nom::{
@@ -390,7 +390,7 @@ impl Bvh {
                         ($axis_field:literal, $axis_enum:ident) => {
                             if let Some(tok) = tokens.next() {
                                 offset[$axis_field] =
-                                    parse(tok).map_err(|e| LoadJointsError::ParseOffsetError {
+                                    parse::<f32>(tok).map_err(|e| LoadJointsError::ParseOffsetError {
                                         parse_float_error: e,
                                         axis: Axis::$axis_enum,
                                         line: line_num,
@@ -421,7 +421,7 @@ impl Bvh {
                             error: None,
                             line: line_num,
                         })
-                        .and_then(|tok| match parse(tok) {
+                        .and_then(|tok| match parse::<usize>(tok) {
                             Ok(c) => Ok(c),
                             Err(e) => Err(LoadJointsError::ParseNumChannelsError {
                                 error: Some(e),
@@ -513,7 +513,7 @@ impl Bvh {
 
                 let parse_num_frames = |token: Option<&[u8]>| {
                     if let Some(num_frames) = token.and_then(|b| str::from_utf8(b).ok()) {
-                        parse::<usize, _>(num_frames)
+                        parse::<usize>(num_frames.as_bytes())
                             .map_err(|e| LoadMotionError::MissingNumFrames {
                                 parse_error: Some(e),
                                 line: line_num,
@@ -569,7 +569,7 @@ impl Bvh {
 
                 let parse_frame_time = |token: Option<&[u8]>| {
                     if let Some(frame_time) = token {
-                        let frame_time_secs = parse::<f64, _>(frame_time).map_err(|e| {
+                        let frame_time_secs = parse::<f64>(frame_time).map_err(|e| {
                             LoadMotionError::MissingFrameTime {
                                 parse_error: Some(e),
                                 line: line_num,
@@ -603,7 +603,7 @@ impl Bvh {
             let tokens = line.fields();
             for (channel_index, token) in tokens.enumerate() {
                 let motion =
-                    parse::<f32, _>(token).map_err(|e| LoadMotionError::ParseMotionSection {
+                    parse::<f32>(token).map_err(|e| LoadMotionError::ParseMotionSection {
                         parse_error: e,
                         channel_index,
                         line: line_num,
@@ -623,4 +623,42 @@ impl Bvh {
 
         Ok(())
     }
+}
+
+trait FromBytes: Sized {
+    fn from_be_bytes(bytes: &[u8]) -> Result<Self, anyhow::Error>;
+}
+
+impl FromBytes for usize {
+    fn from_be_bytes(bytes: &[u8]) -> Result<Self, anyhow::Error> {
+        match bytes.len() {
+            4 => Ok(u32::from_be_bytes(bytes.try_into().unwrap()) as usize),
+            8 => Ok(u64::from_be_bytes(bytes.try_into().unwrap()) as usize),
+            _ => Err(anyhow!("Invalid byte length for usize")),
+        }
+    }
+}
+
+impl FromBytes for f32 {
+    fn from_be_bytes(bytes: &[u8]) -> Result<Self, anyhow::Error> {
+        if bytes.len() == 4 {
+            Ok(Self::from_be_bytes(bytes.try_into().unwrap()))
+        } else {
+            Err(anyhow!("Invalid byte length for f32"))
+        }
+    }
+}
+
+impl FromBytes for f64 {
+    fn from_be_bytes(bytes: &[u8]) -> Result<Self, anyhow::Error> {
+        if bytes.len() == 8 {
+            Ok(Self::from_be_bytes(bytes.try_into().unwrap()))
+        } else {
+            Err(anyhow!("Invalid byte length for f64"))
+        }
+    }
+}
+
+fn parse<T: FromBytes>(tok: &[u8]) -> Result<T, anyhow::Error> {
+    T::from_be_bytes(tok)
 }
