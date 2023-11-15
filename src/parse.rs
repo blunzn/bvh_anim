@@ -625,40 +625,41 @@ impl Bvh {
     }
 }
 
-trait FromBytes: Sized {
-    fn from_be_bytes(bytes: &[u8]) -> Result<Self, anyhow::Error>;
+use byteorder::{ByteOrder, LittleEndian, ReadBytesExt};
+use std::io::Cursor;
+use std::marker::PhantomData;
+
+trait ParseFromByteArray {
+    fn parse_from_byte_array(bytes: &[u8]) -> anyhow:: Result<Self> where Self: Sized;
 }
 
-impl FromBytes for usize {
-    fn from_be_bytes(bytes: &[u8]) -> Result<Self, anyhow::Error> {
-        match bytes.len() {
-            4 => Ok(u32::from_be_bytes(bytes.try_into().unwrap()) as usize),
-            8 => Ok(u64::from_be_bytes(bytes.try_into().unwrap()) as usize),
-            _ => Err(anyhow!("Invalid byte length for usize")),
-        }
-    }
-}
-
-impl FromBytes for f32 {
-    fn from_be_bytes(bytes: &[u8]) -> Result<Self, anyhow::Error> {
-        if bytes.len() == 4 {
-            Ok(Self::from_be_bytes(bytes.try_into().unwrap()))
+impl ParseFromByteArray for usize {
+    fn parse_from_byte_array(bytes: &[u8]) -> anyhow::Result<Self> {
+        let size = std::mem::size_of::<usize>();
+        if size == 8 {
+            Ok(LittleEndian::read_u64(bytes) as usize)
+        } else if size == 4 {
+            Ok(LittleEndian::read_u32(bytes) as usize)
         } else {
-            Err(anyhow!("Invalid byte length for f32"))
+            Err(anyhow::Error::new(std::io::Error::new(std::io::ErrorKind::InvalidData, "Unsupported usize size")))
         }
     }
 }
 
-impl FromBytes for f64 {
-    fn from_be_bytes(bytes: &[u8]) -> Result<Self, anyhow::Error> {
-        if bytes.len() == 8 {
-            Ok(Self::from_be_bytes(bytes.try_into().unwrap()))
-        } else {
-            Err(anyhow!("Invalid byte length for f64"))
-        }
+impl ParseFromByteArray for f32 {
+    fn parse_from_byte_array(bytes: &[u8]) -> anyhow::Result<Self> {
+        let mut rdr = Cursor::new(bytes);
+        rdr.read_f32::<LittleEndian>().map_err(|e| e.into())
     }
 }
 
-fn parse<T: FromBytes>(tok: &[u8]) -> Result<T, anyhow::Error> {
-    T::from_be_bytes(tok)
+impl ParseFromByteArray for f64 {
+    fn parse_from_byte_array(bytes: &[u8]) -> anyhow::Result<Self> {
+        let mut rdr = Cursor::new(bytes);
+        rdr.read_f64::<LittleEndian>().map_err(|e| e.into())
+    }
+}
+
+fn parse<T: ParseFromByteArray>(bytes: &[u8]) -> anyhow::Result<T> {
+    T::parse_from_byte_array(bytes)
 }

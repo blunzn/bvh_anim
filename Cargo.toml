@@ -15,4 +15,11 @@ exclude = ["./fuzz", "./data"]
 [dependencies]
 anyhow = "1"
 bstr = "1.8.0"
+byteorder = "1.4.3"
 smallvec = "1.5"
+
+[dev-dependencies]
+pretty_assertions = "1.4.0"
+glutin = "0.31.1"
+gl = "0.14"
+nalgebra = "0.32.3"

@@ -53,5 +53,5 @@ fn test_load_write_is_identical() {
         .with_line_terminator(LineTerminator::native())
         .write_to_string(&bvh);
 
-    assert_eq!(bvh_string, BVH_STRING);
+    assert_eq!(String::from_utf8(bvh_string).unwrap(), BVH_STRING);
 }
