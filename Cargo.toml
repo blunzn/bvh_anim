@@ -15,7 +15,6 @@ exclude = ["./fuzz", "./data"]
 [dependencies]
 anyhow = "1"
 bstr = "1.8.0"
-byteorder = "1.4.3"
 smallvec = "1.5"
 
 [dev-dependencies]

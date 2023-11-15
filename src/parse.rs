@@ -7,7 +7,7 @@ use crate::{
 };
 use anyhow::anyhow;
 use bstr::ByteSlice;
-use std::{time::Duration, convert::TryInto};
+use std::{time::Duration, convert::TryInto, str::FromStr};
 
 /*
 use nom::{
@@ -625,41 +625,25 @@ impl Bvh {
     }
 }
 
-use byteorder::{ByteOrder, LittleEndian, ReadBytesExt};
-use std::io::Cursor;
-use std::marker::PhantomData;
+use anyhow::{Error,Result};
 
-trait ParseFromByteArray {
-    fn parse_from_byte_array(bytes: &[u8]) -> anyhow:: Result<Self> where Self: Sized;
+trait ParseFromByteArray: FromStr {
+    fn parse_from_byte_array(bytes: &[u8]) -> Result<Self>
+    where
+        Self: Sized,
+    {
+        let s = str::from_utf8(bytes)
+        .map_err(|_| Error::msg("Invalid UTF-8 sequence"))?;
+
+
+        s.parse::<Self>()
+        .map_err(|_| Error::msg("Failed to parse number"))}
 }
 
-impl ParseFromByteArray for usize {
-    fn parse_from_byte_array(bytes: &[u8]) -> anyhow::Result<Self> {
-        let size = std::mem::size_of::<usize>();
-        if size == 8 {
-            Ok(LittleEndian::read_u64(bytes) as usize)
-        } else if size == 4 {
-            Ok(LittleEndian::read_u32(bytes) as usize)
-        } else {
-            Err(anyhow::Error::new(std::io::Error::new(std::io::ErrorKind::InvalidData, "Unsupported usize size")))
-        }
-    }
-}
+impl ParseFromByteArray for usize {}
+impl ParseFromByteArray for f32 {}
+impl ParseFromByteArray for f64 {}
 
-impl ParseFromByteArray for f32 {
-    fn parse_from_byte_array(bytes: &[u8]) -> anyhow::Result<Self> {
-        let mut rdr = Cursor::new(bytes);
-        rdr.read_f32::<LittleEndian>().map_err(|e| e.into())
-    }
-}
-
-impl ParseFromByteArray for f64 {
-    fn parse_from_byte_array(bytes: &[u8]) -> anyhow::Result<Self> {
-        let mut rdr = Cursor::new(bytes);
-        rdr.read_f64::<LittleEndian>().map_err(|e| e.into())
-    }
-}
-
-fn parse<T: ParseFromByteArray>(bytes: &[u8]) -> anyhow::Result<T> {
+fn parse<T: ParseFromByteArray>(bytes: &[u8]) -> Result<T> {
     T::parse_from_byte_array(bytes)
 }
